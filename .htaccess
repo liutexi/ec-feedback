@@ -1,0 +1,13 @@
+# 云湖反馈机器人 - Apache 路由规则
+# 需开启 mod_rewrite
+
+RewriteEngine On
+
+# 反馈详情页 /feedback/{编号} 重写到 feedback.php
+RewriteRule ^feedback/([A-Za-z0-9\-]+)/?$ feedback.php [L]
+
+# 点赞接口 /feedback/{编号}/like
+RewriteRule ^feedback/([A-Za-z0-9\-]+)/like/?$ feedback.php [L]
+
+# 管理后台 /fb-admin
+RewriteRule ^fb-admin/?$ fb-admin.php [L]
