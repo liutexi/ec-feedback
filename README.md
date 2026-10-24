@@ -35,7 +35,8 @@
 
 | 反馈列表 | 管理后台 |
 |:---:|:---:|
-| ![反馈列表](docs/feedback-list.png) | ![管理后台](docs/fb-admin.png) |
+| <img width="1920" height="892" alt="image" src="https://github.com/user-attachments/assets/9491116f-7dd1-451c-90aa-7820c3e24aa6" />
+| ![管理后台](docs/fb-admin.png) |
 
 ---
 
