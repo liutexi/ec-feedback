@@ -33,7 +33,6 @@
 
 前端列表页与后台管理页效果（替换为你的截图）：
 
-| 反馈列表 | 管理后台 |
 |:---:|:---:|
 | <img width="1920" height="892" alt="image" src="https://github.com/user-attachments/assets/9491116f-7dd1-451c-90aa-7820c3e24aa6" />
 | <img width="1920" height="903" alt="image" src="https://github.com/user-attachments/assets/6d71022c-78bb-4e7e-9c16-7c381cd97b2c" />
