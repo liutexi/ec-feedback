@@ -1,0 +1,12 @@
+# 反馈数据与日志（运行时生成，不提交）
+/data/feedbacks.json
+/data/comments.json
+/data/history.json
+/data/webhook.log
+/data/avatar_debug.log
+/data/oauth_user_debug.log
+/data/oauth_pending/
+
+# 系统文件
+.DS_Store
+Thumbs.db

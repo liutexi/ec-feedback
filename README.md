@@ -1,6 +1,6 @@
 # 云湖反馈机器人（PHP）
 
-> 一个基于云湖（YHChat）订阅地址回调的轻量级反馈收集系统(灵感来源:我的天呐)。用户通过指令或 `@机器人` 提交反馈，机器人自动记录并回复反馈编号，管理员可在 Web 后台统一管理。
+> 一个基于云湖（YHChat）订阅地址回调的轻量级反馈收集系统。用户通过指令或 `@机器人` 提交反馈，机器人自动记录并回复反馈编号，管理员可在 Web 后台统一管理。
 
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4?logo=php&logoColor=white)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -13,7 +13,10 @@
 - 💬 **@机器人反馈**：群里 `@机器人 + 内容` 也能提交（精确识别，不会误触发）
 - 🔢 **自动编号**：格式 `#FB-年份月份-本月序号`，如 `#FB-202610-0001`，每月自动从 0001 递增
 - 🖥️ **前端展示**：反馈列表页 + 详情页，支持点赞
+- 📝 **评论互动**：登录用户可评论、修改、删除自己的评论
+- 👤 **个人中心**：云湖登录后可查看、修改、删除自己提交的反馈
 - 🔐 **管理后台**：登录后可查看、修改状态（待跟进 / 处理中 / 已解决）、删除反馈
+- 🔑 **云湖 OAuth2 登录**：普通用户和管理员均可用云湖账号一键登录（授权码模式 + PKCE S256）
 - 💾 **纯 JSON 存储**：无需数据库，虚拟主机 / 共享主机即可运行
 - ⚡ **零依赖**：纯 PHP 实现，无需 Composer，开箱即用
 
@@ -31,10 +34,11 @@
 查看：https://你的域名/feedback.php?no=202610-0001
 ```
 
-前端列表页与后台管理页效果
-| <img width="1920" height="892" alt="image" src="https://github.com/user-attachments/assets/9491116f-7dd1-451c-90aa-7820c3e24aa6" />
-| <img width="1920" height="903" alt="image" src="https://github.com/user-attachments/assets/6d71022c-78bb-4e7e-9c16-7c381cd97b2c" />
- |
+前端列表页与后台管理页效果（替换为你的截图）：
+
+| 反馈列表 | 管理后台 |
+|:---:|:---:|
+| ![反馈列表](docs/feedback-list.png) | ![管理后台](docs/fb-admin.png) |
 
 ---
 
@@ -91,6 +95,14 @@ return [
     // 管理后台密码（务必修改）
     'admin_password'  => 'admin123456',
 
+    // 云湖 OAuth2 登录凭据（在云湖 OAuth2 授权机器人申请，机器人ID 45781752）
+    'oauth_client_id'       => '你的client_id',
+    'oauth_client_secret'   => '你的client_secret',
+    'oauth_redirect_uri'    => 'https://你的网站域名/oauth-callback.php',
+
+    // 管理员白名单（允许登录后台的云湖 user_id）
+    'admin_user_ids'  => [],
+
     // 数据存储目录（无需修改）
     'data_dir'        => __DIR__ . '/data',
 ];
@@ -110,10 +122,19 @@ return [
    - ✅ **普通消息事件**（`message.receive.normal`）
 5. 添加指令：指令 ID 填 `2713`，触发词填 `/反馈`
 
-### 5. 验证
+### 5. 配置云湖 OAuth2 登录
+
+1. 打开 [云湖 OAuth2 授权机器人](https://yhfx.jwznb.com/share?key=2Zfa8aLUIpQw&ts=1773300327)（机器人 ID `45781752`）
+2. 按提示填写应用名称和回调地址，获取 `client_id` 和 `client_secret`
+3. 回调地址登记为：`https://你的网站域名/oauth-callback.php`（必须完全一致）
+4. 把 `client_id`、`client_secret` 填入 `config.php`
+5. 在 `admin_user_ids` 里填入管理员账号的云湖 `user_id`（白名单）
+
+### 6. 验证
 
 - 浏览器访问 `https://你的网站域名/index.php`，返回 `ok` 即正常
 - 给机器人发 `/反馈 测试`，应收到确认回复
+- 打开 `https://你的网站域名/fb-admin.php`，点「使用云湖账号登录」测试授权
 
 ---
 
