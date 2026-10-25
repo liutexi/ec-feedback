@@ -1,6 +1,6 @@
 # 云湖反馈机器人（PHP）
 
-> 一个基于云湖（YHChat）订阅地址回调的轻量级反馈收集系统。用户通过指令或 `@机器人` 提交反馈，机器人自动记录并回复反馈编号，管理员可在 Web 后台统一管理。
+> 一个基于云湖（YHChat）订阅地址回调的轻量级反馈收集系统(灵感来源:我的天呐)。用户通过指令或 `@机器人` 提交反馈，机器人自动记录并回复反馈编号，管理员可在 Web 后台统一管理。
 
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4?logo=php&logoColor=white)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
