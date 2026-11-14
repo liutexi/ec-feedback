@@ -3,6 +3,7 @@
 /data/comments.json
 /data/history.json
 /data/settings.json
+/data/update_check.json
 /data/webhook.log
 /data/fail_notify.log
 /data/admin_log.json

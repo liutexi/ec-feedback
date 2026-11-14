@@ -12,6 +12,7 @@ require __DIR__ . '/inc/AdminLog.php';
 require __DIR__ . '/inc/YunhuOAuth.php';
 require __DIR__ . '/inc/YunhuBot.php';
 require __DIR__ . '/inc/functions.php';
+require __DIR__ . '/inc/version.php';
 
 $config = require __DIR__ . '/config.php';
 $settings = new Settings($config['data_dir']);
@@ -310,6 +311,14 @@ if ($isAdmin) {
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
+    // 检查更新（AJAX，服务端请求 GitHub Release 并与当前版本比较）
+    if ($action === 'check_update') {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $force = !empty($_POST['force']);
+        echo json_encode(update_check($config, $force), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
     if ($action === 'reply') {
         $no = $_POST['no'] ?? '';
         $replyContent = trim($_POST['reply_content'] ?? '');
@@ -450,6 +459,7 @@ if (!$isAdmin) {
             .login-back .ico{display:inline-flex;transition:transform .2s cubic-bezier(.34,1.3,.64,1);}
             .login-back:hover .ico{transform:translateX(-2px);}
             .login-back:hover{color:var(--accent-text);}
+            .login-ver{margin-top:14px;text-align:center;font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
           </style></head><body>'
         . '<div class="login-wrap"><div class="login-box">'
         . ($__loginLogo !== '' ? '<img class="login-logo" src="' . e($__loginLogo) . '" alt="">' : '')
@@ -464,6 +474,7 @@ if (!$isAdmin) {
         . '</form>'
         . '<div class="tip">云湖登录需账号在管理员白名单内</div>'
         . '<a class="login-back" href="/feedback.php"><span class="ico"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></span>返回反馈页</a>'
+        . '<div class="login-ver">' . e(FB_APP_NAME) . ' · ' . e(FB_VERSION_TAG) . '</div>'
         . '</div></div></body></html>';
     exit;
 }
@@ -757,6 +768,71 @@ function status_select($no, $current)
     font-size:13px; font-weight:600; color:#b91c1c; background:#fef2f2;
     border:1px solid #fecaca; padding:5px 12px; border-radius:8px;
   }
+  /* 版本号徽章 */
+  .admin-ver {
+    display:inline-block; margin-left:8px; padding:1px 8px; border-radius:999px;
+    background:var(--accent-soft); color:var(--accent-text);
+    font-size:10.5px; font-weight:700; letter-spacing:0; vertical-align:2px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .ver-badge {
+    display:inline-block; padding:2px 10px; border-radius:999px;
+    background:var(--accent-soft); color:var(--accent-text);
+    font-size:13px; font-weight:700;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .about-link { margin-left:12px; font-size:12px; color:var(--accent-text); text-decoration:none; }
+  .about-link:hover { text-decoration:underline; }
+  .upd-side { display:flex; align-items:center; gap:10px; }
+  .upd-checked { font-size:11.5px; color:var(--muted); white-space:nowrap; }
+
+  /* 检查更新结果 */
+  .update-box { margin-top:14px; }
+  .update-loading {
+    font-size:13px; color:var(--muted); padding:13px 16px;
+    border:1px dashed var(--border); border-radius:10px;
+  }
+  .update-loading::before {
+    content:""; display:inline-block; width:11px; height:11px; margin-right:8px;
+    border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%;
+    vertical-align:-1px; animation:updSpin .7s linear infinite;
+  }
+  @keyframes updSpin { to { transform:rotate(360deg); } }
+  .update-new {
+    padding:15px 17px; border:1px solid rgba(var(--accent-rgb),.3);
+    background:var(--accent-soft); border-radius:12px;
+  }
+  .update-new-head { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .update-title { font-size:14px; font-weight:700; }
+  .update-tag-pre {
+    font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px;
+    background:#fff7e6; color:#a86000; border:1px solid #ffe0a3;
+  }
+  .update-meta { font-size:12px; color:var(--muted); margin-top:5px; }
+  .update-notes {
+    margin-top:11px; padding:11px 13px; max-height:170px; overflow:auto;
+    background:var(--card); border:1px solid var(--border); border-radius:9px;
+    font-size:12.5px; line-height:1.65; white-space:pre-wrap; word-break:break-word;
+  }
+  .update-actions { margin-top:13px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .update-actions .hint { font-size:11.5px; color:var(--muted); }
+  .update-ok, .update-err {
+    display:flex; align-items:flex-start; gap:8px; padding:13px 16px;
+    border-radius:10px; font-size:13px; line-height:1.6;
+  }
+  .update-ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
+  .update-err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
+  .update-ok b, .update-err b { font-weight:700; }
+  .update-sub { display:block; margin-top:5px; font-size:11.5px; opacity:.85; }
+  .update-sub a { color:inherit; }
+  .update-stale {
+    margin-top:9px; font-size:11.5px; color:#a86000;
+    background:#fff7e6; border:1px solid #ffe0a3; border-radius:8px; padding:7px 11px;
+  }
+  .login-ver {
+    margin-top:14px; text-align:center; font-size:11px; color:var(--muted);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
 
   /* 主题颜色配置 */
   #theme-color-config { scroll-margin-top:86px; }
@@ -934,6 +1010,18 @@ function status_select($no, $current)
     .admin-back:hover .ico, .admin-brand:hover .admin-brand-logo,
     .storage-opt:hover .so-ico, .oauth-btn:hover .ico { transform:none !important; }
   }
+
+  /* 窄屏适配（放在样式末尾，确保能覆盖上面的基础规则） */
+  @media (max-width:640px) {
+    .admin-topbar .admin-ver { display:none; }
+    #about-card .setting-row { flex-direction:column; align-items:flex-start; gap:12px; }
+    #about-card .setting-desc { line-height:1.9; }
+    #about-card .about-link { margin-left:0; display:inline-block; }
+    #about-card .upd-side { width:100%; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    #about-card .upd-checked { white-space:normal; }
+    #about-card .update-new-head { gap:6px; }
+    #about-card .update-actions { gap:8px; }
+  }
 </style>
 </head>
 <body>
@@ -946,7 +1034,7 @@ function status_select($no, $current)
         <span class="admin-brand-logo admin-brand-fallback ico-draw"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path pathLength="100" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
       <?php endif; ?>
       <div class="admin-brand-text">
-        <div class="admin-brand-title">反馈管理后台</div>
+        <div class="admin-brand-title">反馈管理后台<span class="admin-ver" title="当前版本"><?php echo e(FB_VERSION_TAG); ?></span></div>
         <div class="admin-brand-sub"><?php echo e(site_brand_name($settings)); ?> · 管理控制台</div>
       </div>
     </div>
@@ -1224,6 +1312,39 @@ function status_select($no, $current)
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 关于与更新 -->
+  <?php
+    $__ucFile = rtrim($config['data_dir'], '/\\') . '/update_check.json';
+    $__ucAt = 0;
+    if (is_file($__ucFile)) {
+        $__ucTmp = json_decode((string)@file_get_contents($__ucFile), true);
+        $__ucAt = (int)($__ucTmp['checked_at'] ?? 0);
+    }
+  ?>
+  <div class="settings-card" id="about-card">
+    <h3>关于与更新</h3>
+    <div class="setting-row" style="border-top:none;padding-top:0;">
+      <div>
+        <div class="setting-label">当前版本</div>
+        <div class="setting-desc">
+          <span class="ver-badge"><?php echo e(FB_VERSION_TAG); ?></span>
+          <span style="margin-left:8px;"><?php echo e(FB_APP_NAME); ?></span>
+          <a class="about-link" href="https://github.com/<?php echo e(FB_REPO); ?>" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+        </div>
+      </div>
+      <div class="upd-side">
+        <span class="upd-checked" id="update-checked-at"></span>
+        <button type="button" class="btn-ghost" id="btn-check-update">检查更新</button>
+      </div>
+    </div>
+    <div class="update-box" id="update-box" style="display:none;"></div>
+    <script>
+      window.__UPD_CACHE_AT__ = <?php echo (int)$__ucAt; ?>;
+      window.__UPD_LOCAL__ = <?php echo json_encode(FB_VERSION_TAG); ?>;
+      window.__UPD_REPO__ = <?php echo json_encode('https://github.com/' . FB_REPO . '/releases'); ?>;
+    </script>
   </div>
 
   <!-- 操作日志 -->
@@ -1780,6 +1901,105 @@ document.querySelectorAll('.status-select').forEach(function(sel){
     };
     reader.readAsDataURL(f);
   });
+})();
+
+// ===== 检查更新 =====
+(function(){
+  var btn = document.getElementById('btn-check-update');
+  var box = document.getElementById('update-box');
+  var atEl = document.getElementById('update-checked-at');
+  if (!btn || !box) return;
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  function fmtTime(ts){
+    if (!ts) return '';
+    var d = new Date(ts * 1000);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function fmtDate(iso){
+    if (!iso) return '';
+    var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? (m[1] + '-' + m[2] + '-' + m[3]) : String(iso);
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function paint(d, silent){
+    if (!d || !d.ok) {
+      if (silent) { box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      box.innerHTML = '<div class="update-err"><span>✕</span><span><b>检查失败</b>'
+        + '<span class="update-sub">' + esc((d && d.message) || '未知错误')
+        + ' · <a href="' + esc((d && d.repo_url) || window.__UPD_REPO__) + '" target="_blank" rel="noopener">手动打开发布页</a>'
+        + '</span></span></div>';
+      return;
+    }
+
+    box.style.display = 'block';
+    var stale = d.stale
+      ? '<div class="update-stale">本次未能联网刷新，以下为上次检查结果：' + esc(d.warning || '') + '</div>'
+      : '';
+
+    if (d.has_update) {
+      var notes = d.notes ? '<div class="update-notes">' + esc(d.notes) + '</div>' : '';
+      var link  = d.zip_url || d.url || window.__UPD_REPO__;
+      var pre   = d.prerelease ? '<span class="update-tag-pre">预发布</span>' : '';
+      box.innerHTML = '<div class="update-new">'
+        + '<div class="update-new-head"><span class="update-title">发现新版本 ' + esc(d.latest) + '</span>' + pre + '</div>'
+        + '<div class="update-meta">当前 ' + esc(d.local)
+        + (d.published_at ? ' · 发布于 ' + esc(fmtDate(d.published_at)) : '') + '</div>'
+        + notes
+        + '<div class="update-actions">'
+        + '<a class="act-btn primary" href="' + esc(link) + '" target="_blank" rel="noopener">查看更新 / 下载</a>'
+        + '<span class="hint">覆盖上传时记得跳过 data/ 目录</span></div>'
+        + '</div>' + stale;
+    } else {
+      var gh = d.latest
+        ? ('GitHub 最新 Release：' + esc(d.latest)
+            + (d.prerelease ? '（预发布）' : '')
+            + (d.published_at ? ' · ' + esc(fmtDate(d.published_at)) : ''))
+        : '当前已是最新版';
+      box.innerHTML = '<div class="update-ok"><span>✓</span><span><b>已是最新版本 ' + esc(d.local) + '</b>'
+        + '<span class="update-sub">' + gh + '</span>'
+        + '</span></div>' + stale;
+    }
+    if (atEl && d.checked_at) atEl.textContent = '上次检查 ' + fmtTime(d.checked_at);
+  }
+
+  function run(force, silent){
+    if (!silent) {
+      btn.disabled = true;
+      btn.textContent = '检查中…';
+      box.style.display = 'block';
+      box.innerHTML = '<div class="update-loading">正在连接 GitHub 检查更新…</div>';
+    }
+    var body = new URLSearchParams();
+    body.set('action', 'check_update');
+    body.set('force', force ? '1' : '0');
+    fetch('fb-admin.php', {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ paint(d, silent); })
+      .catch(function(){ paint({ ok:false, message:'网络请求失败，请检查服务器网络' }, silent); })
+      .then(function(){ if (!silent) { btn.disabled = false; btn.textContent = '检查更新'; } });
+  }
+
+  btn.addEventListener('click', function(){ run(true, false); });
+
+  // 进入后台时：超过 24 小时没检查过，就静默查一次
+  if (!window.__UPD_CACHE_AT__ || (Date.now() / 1000 - window.__UPD_CACHE_AT__) > 86400) {
+    run(false, true);
+  } else if (atEl) {
+    atEl.textContent = '上次检查 ' + fmtTime(window.__UPD_CACHE_AT__);
+  }
 })();
 </script>
 </body>

@@ -9,6 +9,7 @@ require __DIR__ . '/inc/store.php';
 require __DIR__ . '/inc/Settings.php';
 require __DIR__ . '/inc/YunhuOAuth.php';
 require __DIR__ . '/inc/functions.php';
+require __DIR__ . '/inc/version.php';
 
 $config = require __DIR__ . '/config.php';
 $settings = new Settings($config['data_dir']);
@@ -464,7 +465,10 @@ function render_profile($currentUser, array $stats, array $mineList, array $like
         . (empty($likedList) ? '<div class="empty">你还没有赞过任何反馈</div>' : render_fb_items($likedList, $site, $currentUserId, $store, false))
         . '</div>';
 
-    $html .= '<footer class="page-foot">反馈由云湖机器人自动收集' . (!empty($currentUser['is_admin']) ? ' · <a href="' . $site . '/fb-admin.php">管理后台</a>' : '') . '</footer>';
+    $html .= '<footer class="page-foot">反馈由云湖机器人自动收集'
+        . ' · <span class="foot-ver" title="当前版本">' . e(FB_VERSION_TAG) . '</span>'
+        . (!empty($currentUser['is_admin']) ? ' · <a href="' . $site . '/fb-admin.php">管理后台</a>' : '')
+        . '</footer>';
     $html .= '</div>';
 
     // 面板切换脚本
@@ -508,7 +512,10 @@ function render_list(array $list, array $config, $currentUser = null, $isMine = 
             . '</div>';
     }
 
-    $html .= '<footer class="page-foot">反馈由云湖机器人自动收集' . (!empty($currentUser['is_admin']) ? ' · <a href="' . $site . '/fb-admin.php">管理后台</a>' : '') . '</footer>';
+    $html .= '<footer class="page-foot">反馈由云湖机器人自动收集'
+        . ' · <span class="foot-ver" title="当前版本">' . e(FB_VERSION_TAG) . '</span>'
+        . (!empty($currentUser['is_admin']) ? ' · <a href="' . $site . '/fb-admin.php">管理后台</a>' : '')
+        . '</footer>';
     $html .= '</div>';
 
     // 排序标签无刷新切换
@@ -749,7 +756,14 @@ function render_detail(array $item, array $comments, array $history, array $proc
             . '</div>';
     }
 
-    $html .= '</div></div>';
+    $html .= '</div>';
+
+    // 页脚（含版本号）
+    $html .= '<footer class="page-foot">反馈由云湖机器人自动收集'
+        . ' · <span class="foot-ver" title="当前版本">' . e(FB_VERSION_TAG) . '</span>'
+        . ($isAdmin ? ' · <a href="' . $site . '/fb-admin.php">管理后台</a>' : '')
+        . '</footer>';
+    $html .= '</div>';
 
     // 前端 JS
     $html .= '<script>window.__SITE__=' . json_encode($site) . ';window.__NO__=' . json_encode($item['no']) . ';window.__LOGGED__=' . (empty($currentUserId) ? 'false' : 'true') . ';</script>';
