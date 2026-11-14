@@ -13,6 +13,8 @@
 declare(strict_types=1);
 
 require __DIR__ . '/inc/FeedbackStore.php';
+require __DIR__ . '/inc/store.php';
+require __DIR__ . '/inc/Settings.php';
 require __DIR__ . '/inc/YunhuBot.php';
 require __DIR__ . '/inc/functions.php';
 
@@ -26,6 +28,40 @@ function log_debug($msg)
         mkdir($dir, 0755, true);
     }
     file_put_contents($dir . '/webhook.log', '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n", FILE_APPEND);
+}
+
+/**
+ * 发送消息，失败时自动重试（最多 3 次，指数退避）
+ * 全部失败则记入 fail_notify.log
+ */
+function send_with_retry($bot, $recvId, $recvType, $text, $parentId = '', $refNo = '')
+{
+    $maxTry = 3;
+    for ($i = 1; $i <= $maxTry; $i++) {
+        $r = $bot->sendText($recvId, $recvType, $text, $parentId);
+        if (($r['code'] ?? 0) == 1) {
+            if ($i > 1) {
+                log_debug("notify retry success ({$i}) ref={$refNo}");
+            }
+            return true;
+        }
+        $msg = $r['msg'] ?? 'unknown';
+        log_debug("notify attempt {$i} failed ref={$refNo}: {$msg}");
+        if ($i < $maxTry) {
+            usleep(200000 * $i); // 200ms / 400ms 退避
+        }
+    }
+    // 最终失败，记录到独立日志便于排查
+    $dir = __DIR__ . '/data';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    file_put_contents(
+        $dir . '/fail_notify.log',
+        '[' . date('Y-m-d H:i:s') . "] 发送失败 ref={$refNo} recvType={$recvType} recvId={$recvId} text=" . mb_substr($text, 0, 100) . "\n",
+        FILE_APPEND
+    );
+    return false;
 }
 
 // 读取请求体
@@ -44,7 +80,8 @@ $eventType = $event['header']['eventType'];
 // 记录所有收到的原始事件（调试用，确认指令事件的实际结构）
 log_debug('EVENT_TYPE=' . $eventType . ' RAW=' . $rawBody);
 
-$store = new FeedbackStore($config['data_dir']);
+$settings = new Settings($config['data_dir']);
+$store = create_store($config, $settings);
 $bot = new YunhuBot($config['bot_token']);
 $siteUrl = rtrim($config['site_url'], '/');
 $commandId = (string)($config['command_id'] ?? '');
@@ -179,24 +216,68 @@ if ($feedbackContent === '') {
     exit;
 }
 
+// ===== 内容校验：长度限制 + 空内容 =====
+$MAX_LEN = 2000;
+$feedbackContent = trim($feedbackContent);
+if ($feedbackContent === '') {
+    // 空内容，提示用户
+    $recvId = $feedbackMeta['chatId'] ?? '';
+    $recvType = ($feedbackMeta['chatType'] ?? 'bot') === 'group' ? 'group' : 'user';
+    if ($recvId) {
+        $bot->sendText($recvId, $recvType, "⚠️ 反馈内容不能为空\n请发送：" . ($commandTrigger ?: '反馈') . " 你的问题描述");
+    }
+    http_response_code(200);
+    echo 'ok';
+    exit;
+}
+$truncated = false;
+if (mb_strlen($feedbackContent) > $MAX_LEN) {
+    $feedbackContent = mb_substr($feedbackContent, 0, $MAX_LEN);
+    $truncated = true;
+}
+
 // 记录反馈
 $record = $store->add(array_merge(['content' => $feedbackContent], $feedbackMeta));
 $no = full_no($record['no']);
-$detailUrl = $siteUrl . '/feedback.php?no=' . $record['no'];
+
+// 处理记录：提交反馈（时间线起点）
+$store->addProcessLog($record['no'], 'submit', [
+    'content' => $feedbackContent,
+], [
+    'user_id'  => $feedbackMeta['senderId'] ?? '',
+    'nickname' => $feedbackMeta['senderNickname'] ?? '',
+]);
+
+// 写入失败检测：save 落盘失败时，提示用户而不是谎报"已记录"
+$saveFailed = false;
+if (method_exists($store, 'lastSaveOk') && !$store->lastSaveOk()) {
+    $saveFailed = true;
+}
+
+// 生成详情链接：后台开启短编号时用短编号（如 001），否则用完整编号
+$linkNo = $settings->shortNoEnabled() ? $store->shortNo($record['no']) : $record['no'];
+$detailUrl = $siteUrl . '/feedback/' . $linkNo;
 
 // 构造回复文本
-$replyText = "✅ 反馈已记录\n"
-    . "编号：{$no}\n"
-    . "内容：{$feedbackContent}\n"
-    . "状态：待跟进\n"
-    . "查看：{$detailUrl}";
+if ($saveFailed) {
+    $replyText = "⚠️ 反馈提交失败\n"
+        . "数据未能保存，请联系管理员检查服务器 data 目录写入权限。\n"
+        . "（错误已记录到 data/store_error.log）";
+} else {
+    $replyText = "✅ 反馈已记录\n"
+        . "编号：{$no}\n"
+        . "内容：{$feedbackContent}\n"
+        . ($truncated ? "（内容过长已截断至 {$MAX_LEN} 字）\n" : '')
+        . "状态：待跟进\n"
+        . "查看：{$detailUrl}";
+}
 
-// 回复给用户
+// 回复给用户（带失败重试）
 $recvId = $feedbackMeta['chatId'] ?? '';
 $recvType = ($feedbackMeta['chatType'] ?? 'bot') === 'group' ? 'group' : 'user';
 if ($recvId) {
     $parentId = $event['event']['message']['msgId'] ?? '';
-    $bot->sendText($recvId, $recvType, $replyText, $parentId);
+    send_with_retry($bot, $recvId, $recvType, $replyText, $parentId, $record['no']);
 }
 
 log_debug("new feedback {$record['no']} from {$feedbackMeta['senderNickname']}");

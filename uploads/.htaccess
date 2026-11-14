@@ -1,0 +1,3 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule !\.(png|jpe?g|gif|webp|ico|html)$ - [F,L]

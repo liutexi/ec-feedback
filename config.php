@@ -41,4 +41,26 @@ return [
 
     // 数据存储目录（相对项目根目录），用于存放 JSON 反馈数据
     'data_dir' => __DIR__ . '/data',
+
+    // ===== 存储方式 =====
+    // driver = 'json'  : 使用 JSON 文件（默认，零配置，适合小站）
+    // driver = 'mysql' : 使用 MySQL 数据库（适合数据量大 / 多实例）
+    //
+    // 切换步骤：
+    //   1. 先在宝塔创建一个空数据库（utf8mb4）
+    //   2. 填好下面的 host/port/database/username/password
+    //   3. 把 driver 改成 'mysql'
+    // 表结构首次访问会自动创建，无需手动建表。
+    'storage' => [
+        'driver' => 'json',
+        'db' => [
+            'host'     => '127.0.0.1',
+            'port'     => 3306,
+            'database' => 'feedback',
+            'username' => 'feedback',
+            'password' => '',
+            'prefix'   => 'fb_',      // 表名前缀，多站共用一个库时可区分
+            'charset'  => 'utf8mb4',
+        ],
+    ],
 ];

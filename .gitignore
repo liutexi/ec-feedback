@@ -2,11 +2,19 @@
 /data/feedbacks.json
 /data/comments.json
 /data/history.json
+/data/settings.json
 /data/webhook.log
+/data/fail_notify.log
+/data/admin_log.json
 /data/avatar_debug.log
 /data/oauth_user_debug.log
 /data/oauth_pending/
 
+# 后台上传的站点 Logo（运行时生成，不提交），保留 uploads/.htaccess 与 index.html
+/uploads/site-logo.*
+
 # 系统文件
 .DS_Store
 Thumbs.db
+/data/store_error.log
+/data/process_log.json

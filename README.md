@@ -17,8 +17,87 @@
 - 👤 **个人中心**：云湖登录后可查看、修改、删除自己提交的反馈
 - 🔐 **管理后台**：登录后可查看、修改状态（待跟进 / 处理中 / 已解决）、删除反馈
 - 🔑 **云湖 OAuth2 登录**：普通用户和管理员均可用云湖账号一键登录（授权码模式 + PKCE S256）
-- 💾 **纯 JSON 存储**：无需数据库，虚拟主机 / 共享主机即可运行
+- 💾 **双存储驱动**：默认 JSON 文件（零配置），可一键切换 MySQL（改配置一行）
 - ⚡ **零依赖**：纯 PHP 实现，无需 Composer，开箱即用
+
+---
+
+## 🗄️ 数据存储方式（JSON / MySQL 二选一）
+
+默认用 JSON 文件，无需任何配置。数据量变大或多台机器共用时，可切换到 MySQL——**只改 `config.php` 一个字段，业务代码零改动**。
+
+### 方式一：JSON 文件（默认）
+
+```php
+'storage' => [
+    'driver' => 'json',
+    // db 配置留空即可
+],
+```
+
+数据存于 `data/*.json`，备份这几个文件就等于备份全部数据。
+
+### 方式二：MySQL 数据库
+
+**第 1 步**：宝塔面板 → 数据库 → 添加数据库（字符集选 `utf8mb4`），记下库名/用户名/密码。
+
+**第 2 步**：修改 `config.php`：
+
+```php
+'storage' => [
+    'driver' => 'mysql',          // ← 只改这里
+    'db' => [
+        'host'     => '127.0.0.1',
+        'port'     => 3306,
+        'database' => 'feedback',   // 你的库名
+        'username' => 'feedback',   // 你的用户名
+        'password' => '你的密码',
+        'prefix'   => 'fb_',        // 表前缀
+        'charset'  => 'utf8mb4',
+    ],
+],
+```
+
+**第 3 步**：直接访问网站即可。**表结构会在首次访问时自动创建**，无需手动建表、无需导入 SQL。
+
+### 已有 JSON 数据要迁到 MySQL？
+
+访问 `https://你的域名/migrate.php`，会显示迁移结果（导入了多少条、跳过多少条）。迁移完成后：
+
+1. 把 `driver` 改成 `'mysql'`
+2. **删除 `migrate.php`**（安全考虑）
+
+迁移是可重复执行的，已存在的记录会自动跳过，不会重复导入。
+
+### 如何确认当前用的是哪种？
+
+管理后台「站点设置」里会显示：**当前使用：JSON 文件 / MySQL**。
+
+### 自定义网站 Logo 与站点名称
+
+进入管理后台 `/fb-admin.php` →「站点设置 → 网站 Logo 与站点名称」即可可视化配置，无需改代码：
+
+- **上传 Logo 图片**：支持 PNG / JPG / GIF / WebP，≤ 2MB，选择后即时预览，保存为 `uploads/site-logo.*`
+- **或填写图片地址**：外链 `https://example.com/logo.png`，或站内路径（如 `/logo.png`）
+- **站点名称**：左上角文字，留空则显示默认「AI 反馈」
+- **恢复默认**：清空图片地址，或勾选「清除已上传 Logo」
+
+配置后的 Logo 会同时用于**页面左上角**和**浏览器标签图标（favicon）**，前台列表页/详情页、后台登录页与后台页面同步生效。未配置时依次兜底：项目根目录的 `logo.png` / `logo.jpg` / `logo.webp` 等 → 内置 SVG 图标。
+
+> `uploads/` 目录需要 PHP 进程可写（首次上传会自动创建），目录内自带 `.htaccess`（禁止列目录、只允许访问图片文件）。Nginx 环境下该目录需保持可访问，不要加入 deny 规则。
+
+### 自定义主题颜色
+
+进入管理后台 `/fb-admin.php` →「站点设置 → 主题颜色」，可配置全站强调色（按钮、链接、徽章、选中态）：
+
+- **直接选色**：点击色块用系统取色器，或填 `#7c3aed` / `#0af`（3 位简写也支持）
+- **预设色板**：靛蓝、紫罗兰、天蓝、青碧、翠绿、橙红、玫红、石墨 8 种一键切换
+- **从 Logo 取色**：自动分析 Logo 主色调并填入（上传新 Logo 时也会自动取色），改动即时预览
+- **恢复默认**：清空输入框即回到默认靛蓝 `#4f6bfe`
+
+主题色会**同时作用于前台与后台**。系统会自动派生配套色：深一档的 hover 色、很淡的徽章底色、以及浅色主题下的深色文字（选亮黄、亮青这类浅色时，按钮文字自动转深色，编号/链接自动压深一档，保证可读）。
+
+> 从 Logo 取色用的是浏览器端 canvas 采样，因此**外链图片需要能被 CORS 读取**；若提示无法读取像素，把图片上传到本站即可。
 
 ---
 
@@ -34,13 +113,11 @@
 查看：https://你的域名/feedback.php?no=202610-0001
 ```
 
-前端列表页与后台管理页效果：
+前端列表页与后台管理页效果（替换为你的截图）：
 
 | 反馈列表 | 管理后台 |
 |:---:|:---:|
-| <img width="1908" height="888" alt="image" src="https://github.com/user-attachments/assets/f5f69ce3-aad1-46d7-ae79-ce6d02e7b144" />
- | <img width="1708" height="739" alt="image" src="https://github.com/user-attachments/assets/77c5c450-96fa-4500-94b2-087b1496ee9e" />
-|
+| ![反馈列表](docs/feedback-list.png) | ![管理后台](docs/fb-admin.png) |
 
 ---
 
@@ -52,15 +129,19 @@ EF/
 ├── feedback.php         # 前端反馈页面（列表 / 详情 / 点赞）
 ├── fb-admin.php         # 管理员后台
 ├── config.php           # 配置文件（部署时修改这里）
+├── migrate.php          # JSON → MySQL 迁移工具（迁移后可删）
 ├── .htaccess            # Apache 路由规则（可选）
 ├── nginx.conf           # Nginx 伪静态规则（可选）
 ├── inc/
 │   ├── FeedbackStore.php   # JSON 数据存储类
+│   ├── FeedbackStoreDb.php # MySQL 数据存储类（与上面接口一致）
+│   ├── store.php           # 存储驱动加载器（按配置选择）
+│   ├── Settings.php        # 运行时设置
 │   ├── YunhuBot.php        # 云湖发送消息 SDK
 │   └── functions.php       # 辅助函数
 ├── assets/
 │   └── style.css           # 前端样式
-└── data/                # 数据目录（feedbacks.json、webhook.log，自动生成）
+└── data/                # JSON 模式的数据目录（自动生成）
 ```
 
 ---
@@ -107,6 +188,16 @@ return [
 
     // 数据存储目录（无需修改）
     'data_dir'        => __DIR__ . '/data',
+
+    // 存储方式：json（默认）或 mysql
+    'storage' => [
+        'driver' => 'json',
+        'db' => [
+            'host' => '127.0.0.1', 'port' => 3306,
+            'database' => '', 'username' => '', 'password' => '',
+            'prefix' => 'fb_', 'charset' => 'utf8mb4',
+        ],
+    ],
 ];
 ```
 
@@ -217,9 +308,20 @@ return [
 
 ## 📦 数据说明
 
-- 反馈数据存储于 `data/feedbacks.json`，**备份该文件即可备份全部数据**
+- **JSON 模式**：数据存于 `data/feedbacks.json`、`comments.json`、`history.json`，**备份这几个文件即可备份全部数据**
+- **MySQL 模式**：数据存于数据库，用宝塔的数据库备份功能即可
 - 调试日志位于 `data/webhook.log`（可在 `index.php` 中关闭 `log_debug` 调用）
+- 发送失败的记录在 `data/fail_notify.log`
 - 建议给 `data/` 目录设置可写权限（`755`，属主 www/www）
+
+---
+
+## 🔒 安全建议（重要）
+
+1. **禁止 `data/` 目录公网访问**：已提供 `data/.htaccess` 与 `nginx.conf` 规则，上传后请在宝塔「伪静态」中粘贴 nginx 规则
+2. 后台「站点设置 → 安全状态」会自动检测数据目录是否暴露
+3. 修改默认后台密码 `admin123456`
+4. 迁移完成后删除 `migrate.php`
 
 ---
 
